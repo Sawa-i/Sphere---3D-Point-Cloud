@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset=utf-8>
+		<title>Point Visualizer</title>
+		<style>
+			html { margin: 0; height: 100%}
+			body { float: left; margin: 0; height: 100%; max-height: 100%; width: 100%;}
+			div { margin: 0;}
+			canvas { width: 100%; height: 100%; margin: 0; float: left}
+		</style>
+	</head>
+	<body>
+		<script src="three.js"></script>
+		<script src="OrbitControls.js"></script>
+		
+	
+	 <div style="z-index: 2; position: absolute; top: 50%; left: 50%;"><input type="file" id="file-input" /></div>
+	 <div style="z-index: 1; position: absolute; top: 0px; left: 0px; width:100%; height: 100%" id="container"></div> 
+		
+		<script>
+			container = document.getElementById( 'container' );
+			container.style.visibility = "hidden";
+			
+			var renderer = new THREE.WebGLRenderer({ antialias: true });
+			container.appendChild( renderer.domElement );
+			renderer.setSize( window.innerWidth, window.innerHeight, false);
+
+			var scene = new THREE.Scene();
+
+			var camera = new THREE.OrthographicCamera( window.innerWidth / - 2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / - 2, -1000, 1000 );
+ 
+			var controls = new THREE.OrbitControls( camera, renderer.domElement );
+			controls.screenSpacePanning = true;
+
+			function animate() {
+				requestAnimationFrame( animate );
+				renderer.render( scene, camera );
+			}
+
+			function readSingleFile(e) {
+				var file = e.target.files[0];
+				if (!file) {
+					return;
+				}
+				var reader = new FileReader();
+				reader.onload = function(e) {
+					var contents = e.target.result;
+					displayContents(contents);
+				};
+				reader.readAsText(file);
+			}
+
+			function displayContents(contents) {
+				renderer.clear();
+				
+				document.getElementById('file-input').style.visibility = "hidden";
+				container.style.visibility = "inherit"
+
+				var geometry = new THREE.BufferGeometry();
+				var vertices = [];
+				var colors = [];
+				
+				lines = contents.split('\n');
+								
+				var box = new THREE.Box3;
+				var pointToAdd = new THREE.Vector3;
+				for(var line = 0; line < lines.length; line++)
+				{
+					var values = lines[line].split(' ');
+					if(values.length < 3) continue;
+					var x = values[0];
+					var y = values[1];
+					var z = values[2];
+					pointToAdd.x = x;
+					pointToAdd.y = y;
+					pointToAdd.z = z;
+					box.expandByPoint(pointToAdd);
+					vertices.push( x, y, z );
+				}
+				
+				var size = new THREE.Vector3;
+				box.getSize(size);
+				var zRange = Math.max(1, size.z);
+				var minZ = box.min.z;
+				for(var i = 0; i < vertices.length; i+=3)
+				{
+					var z = vertices[i + 2];
+					var c = new THREE.Color();
+					var inter = (z - minZ) / zRange;
+					c.setHSL(inter, 1.0, 0.5);
+					colors.push(c.r, c.g, c.b);
+				}
+				
+				controls.reset();
+				var center = new THREE.Vector3;
+				box.getCenter(center);
+				controls.target.set(center.x, center.y, center.z);
+				camera.position.set(center.x, center.y, center.z + size.z);
+				controls.update();
+
+				geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( vertices, 3 ) );
+				geometry.addAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+				material = new THREE.PointsMaterial( { size: 2, sizeAttenuation: false, vertexColors : THREE.VertexColors} );
+								
+				var particles = new THREE.Points( geometry, material );
+								
+				scene.add( particles );
+			}
+
+			function onWindowResize() {
+				camera.left = window.innerWidth / -2;
+				camera.bottom = window.innerHeight / -2;
+				camera.right = window.innerWidth / 2;
+				camera.top = window.innerHeight / 2;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight, false);
+			}
+
+			document.getElementById('file-input').addEventListener('change', readSingleFile, false);
+  
+			window.addEventListener( 'resize', onWindowResize, false );
+
+			animate();
+		</script>
+		
+	</body>
+</html>
